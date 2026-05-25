@@ -24,6 +24,13 @@ import {
 import { useState } from "react";
 
 const linkedInUrl = "https://www.linkedin.com/in/patrick-habchi-a99ab41b8";
+const contactEmail = "habchipatrick@gmail.com";
+const contactEndpoint = `https://formsubmit.co/ajax/${contactEmail}`;
+const gmailComposeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+  contactEmail,
+)}`;
+
+type ContactStatus = "idle" | "sending" | "sent" | "error";
 
 const navItems = [
   ["Home", "home"],
@@ -187,21 +194,83 @@ function MotionCard({
 
 export default function Portfolio() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [contactStatus, setContactStatus] = useState<ContactStatus>("idle");
+  const [contactFeedback, setContactFeedback] = useState("");
 
-  const handleContactSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleContactSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const name = String(formData.get("name") || "").trim();
     const email = String(formData.get("email") || "").trim();
     const subject = String(formData.get("subject") || "Portfolio Contact").trim();
     const message = String(formData.get("message") || "").trim();
-    const body = [`Name: ${name}`, `Email: ${email}`, "", message].join("\n");
+    const honey = String(formData.get("_honey") || "").trim();
 
-    window.location.href = `mailto:habchipatrick@gmail.com?subject=${encodeURIComponent(
-      subject || "Portfolio Contact",
-    )}&body=${encodeURIComponent(body)}`;
+    if (honey) {
+      form.reset();
+      setContactStatus("sent");
+      setContactFeedback("Thanks, your message has been sent.");
+      return;
+    }
+
+    if (!name || !email || !subject || !message) {
+      setContactStatus("error");
+      setContactFeedback("Please complete all fields before sending.");
+      return;
+    }
+
+    setContactStatus("sending");
+    setContactFeedback("Sending your message...");
+
+    try {
+      const response = await fetch(contactEndpoint, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          subject,
+          message,
+          _captcha: "false",
+          _replyto: email,
+          _subject: `Portfolio contact: ${subject}`,
+          _template: "table",
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.success === false) {
+        const responseMessage = String(data?.message || "");
+
+        if (responseMessage.toLowerCase().includes("activation")) {
+          setContactStatus("error");
+          setContactFeedback(
+            `FormSubmit sent an activation email to ${contactEmail}. Click the Activate Form link once, then messages will arrive here.`,
+          );
+          return;
+        }
+
+        throw new Error(responseMessage || "Message could not be sent right now.");
+      }
+
+      form.reset();
+      setContactStatus("sent");
+      setContactFeedback("Message sent. Thanks for reaching out.");
+    } catch {
+      setContactStatus("error");
+      setContactFeedback(
+        `Message could not be sent right now. Please email ${contactEmail} directly.`,
+      );
+    }
   };
+
+  const isSendingContact = contactStatus === "sending";
 
   return (
     <main className="min-h-screen overflow-hidden">
@@ -227,7 +296,9 @@ export default function Portfolio() {
           </div>
 
           <a
-            href="mailto:habchipatrick@gmail.com"
+            href={gmailComposeUrl}
+            target="_blank"
+            rel="noreferrer"
             className="hidden items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-cyan-200 lg:flex"
           >
             <Mail size={16} />
@@ -281,7 +352,7 @@ export default function Portfolio() {
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <a
-                href="/patrick-habchi-cv.pdf"
+                href="/Patrick Habchi-CV.pdf"
                 download
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-300 px-6 py-3.5 font-bold text-slate-950 shadow-glow transition hover:bg-cyan-200"
               >
@@ -315,10 +386,10 @@ export default function Portfolio() {
             <div className="glass relative rounded-[1.75rem] p-4">
               <div className="overflow-hidden rounded-[1.35rem] bg-slate-950">
                 <Image
-                  src="/patrick-habchi-photo.jpg"
+                  src="/patrick-habchi-suit.jpg"
                   alt="Patrick Habchi"
-                  width={900}
-                  height={1200}
+                  width={1024}
+                  height={1536}
                   priority
                   className="h-[32rem] w-full object-cover object-top"
                 />
@@ -341,7 +412,7 @@ export default function Portfolio() {
           <SectionHeader
             eyebrow="What I Do"
             title="Full-stack delivery with product-minded detail"
-            text="Patrick works across React.js, Redux, Node.js, Express.js, PHP Symfony, MySQL, PostgreSQL, and MongoDB to build dependable web applications from interface to infrastructure."
+            text="I work across React.js, Redux, Node.js, Express.js, PHP Symfony, MySQL, PostgreSQL, and MongoDB to build dependable web applications from interface to infrastructure."
           />
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {services.map((service, index) => {
@@ -435,7 +506,7 @@ export default function Portfolio() {
 
       <section id="skills" className="section-pad bg-white/[0.025]">
         <div className="mx-auto max-w-7xl">
-          <SectionHeader eyebrow="Skills" title="Technologies Patrick uses" />
+          <SectionHeader eyebrow="Skills" title="Technologies I use" />
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-5">
             {skillGroups.map(([group, skills], index) => (
               <MotionCard key={group} className="p-5" delay={index * 0.04}>
@@ -489,11 +560,11 @@ export default function Portfolio() {
               Reach out for full-stack development roles, freelance collaboration, or project discussions.
             </p>
             <div className="mt-8 space-y-4">
-              <a href="mailto:habchipatrick@gmail.com" className="flex items-center gap-4 text-slate-200 transition hover:text-cyan-200">
+              <a href={gmailComposeUrl} target="_blank" rel="noreferrer" className="flex items-center gap-4 text-slate-200 transition hover:text-cyan-200">
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-300/12 text-cyan-200">
                   <Mail size={21} />
                 </span>
-                habchipatrick@gmail.com
+                {contactEmail}
               </a>
               <a href="tel:+96170710892" className="flex items-center gap-4 text-slate-200 transition hover:text-cyan-200">
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-300/12 text-violet-200">
@@ -517,16 +588,36 @@ export default function Portfolio() {
           </motion.div>
 
           <MotionCard className="p-5 md:p-7">
-            <form className="grid gap-4" onSubmit={handleContactSubmit}>
+            <form
+              action={`https://formsubmit.co/${contactEmail}`}
+              className="grid gap-4"
+              method="POST"
+              onSubmit={handleContactSubmit}
+            >
+              <input type="hidden" name="_captcha" value="false" />
+              <input type="hidden" name="_subject" value="New portfolio contact" />
+              <input type="hidden" name="_template" value="table" />
+              <input className="hidden" name="_honey" tabIndex={-1} autoComplete="off" />
               <div className="grid gap-4 md:grid-cols-2">
-                <input name="name" className="rounded-xl border border-white/10 bg-white/6 px-4 py-3.5 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60" placeholder="Name" type="text" required />
-                <input name="email" className="rounded-xl border border-white/10 bg-white/6 px-4 py-3.5 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60" placeholder="Email" type="email" required />
+                <input name="name" className="rounded-xl border border-white/10 bg-white/6 px-4 py-3.5 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60" placeholder="Name" type="text" required disabled={isSendingContact} />
+                <input name="email" className="rounded-xl border border-white/10 bg-white/6 px-4 py-3.5 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60" placeholder="Email" type="email" required disabled={isSendingContact} />
               </div>
-              <input name="subject" className="rounded-xl border border-white/10 bg-white/6 px-4 py-3.5 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60" placeholder="Subject" type="text" required />
-              <textarea name="message" className="min-h-40 resize-none rounded-xl border border-white/10 bg-white/6 px-4 py-3.5 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60" placeholder="Message" required />
-              <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-3.5 font-bold text-slate-950 transition hover:bg-cyan-200 md:w-fit">
+              <input name="subject" className="rounded-xl border border-white/10 bg-white/6 px-4 py-3.5 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60" placeholder="Subject" type="text" required disabled={isSendingContact} />
+              <textarea name="message" className="min-h-40 resize-none rounded-xl border border-white/10 bg-white/6 px-4 py-3.5 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300/60" placeholder="Message" required disabled={isSendingContact} />
+              {contactFeedback ? (
+                <p
+                  className={`text-sm font-medium ${
+                    contactStatus === "error" ? "text-rose-200" : "text-emerald-200"
+                  }`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  {contactFeedback}
+                </p>
+              ) : null}
+              <button type="submit" disabled={isSendingContact} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-3.5 font-bold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-70 md:w-fit">
                 <Send size={18} />
-                Send Message
+                {isSendingContact ? "Sending..." : "Send Message"}
               </button>
             </form>
           </MotionCard>
@@ -538,10 +629,10 @@ export default function Portfolio() {
           <p>Patrick Habchi</p>
           <p>Copyright © 2026 Patrick Habchi. All rights reserved.</p>
           <div className="flex gap-3">
-            <a href="mailto:habchipatrick@gmail.com" aria-label="Email Patrick" className="transition hover:text-cyan-200">
+            <a href={gmailComposeUrl} target="_blank" rel="noreferrer" aria-label="Email me" className="transition hover:text-cyan-200">
               <Mail size={18} />
             </a>
-            <a href={linkedInUrl} target="_blank" rel="noreferrer" aria-label="Patrick Habchi on LinkedIn" className="transition hover:text-cyan-200">
+            <a href={linkedInUrl} target="_blank" rel="noreferrer" aria-label="My LinkedIn profile" className="transition hover:text-cyan-200">
               <Linkedin size={18} />
             </a>
           </div>

@@ -10,7 +10,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Patrick Habchi | Full Stack Developer",
   description:
-    "Professional portfolio for Patrick Habchi, a Full Stack Developer and Software Engineer based in Byblos, Lebanon.",
+    "My professional portfolio as a Full Stack Developer and Software Engineer based in Byblos, Lebanon.",
 };
 
 export default function RootLayout({
